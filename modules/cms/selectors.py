@@ -5,17 +5,17 @@ from django.db.models import Q
 from modules.cms.models import CmsRoleAssignment, Complaint
 
 
-def complaints_for(actor, *, staff=False):
+def complaints_for(actor, *, role=None):
     qs = Complaint.objects.all().prefetch_related(
         "attachments", "history", "progress_updates", "reopening_requests"
     )
-    if not staff:
-        return qs.filter(complainant_user_id=actor.user_id)
-    return qs.filter(
-        Q(complainant_user_id=actor.user_id)
-        | Q(assigned_handler_user_id=actor.user_id)
-        | Q(status__in=["submitted", "in_progress", "resolved", "rejected", "closed"])
-    )
+    if role == "supervisor":
+        return qs
+    if role == "handler":
+        return qs.filter(
+            Q(assigned_handler_user_id=actor.user_id) | Q(assigned_handler_user_id__isnull=True)
+        )
+    return qs.filter(complainant_user_id=actor.user_id)
 
 
 def has_active_role(user_id: int, role: str, *, at=None) -> bool:

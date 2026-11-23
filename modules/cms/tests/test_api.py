@@ -118,6 +118,45 @@ def test_handler_role_appointment_and_permission_both_gate_assignment(stub_iam):
 
 
 @pytest.mark.django_db
+def test_handler_can_open_unassigned_work_but_not_another_handlers_complaint(stub_iam):
+    handler_id = 202
+    CmsRoleAssignment.objects.create(
+        role="handler",
+        user_id=handler_id,
+        starts_at=timezone.now() - timedelta(hours=1),
+        ends_at=timezone.now() + timedelta(hours=2),
+        is_active=True,
+        assigned_by_user_id=1,
+    )
+    stub_iam(
+        session=make_session(
+            user_id=handler_id,
+            modules=("cms",),
+            kind="staff",
+            roles=("complaint_handler",),
+            active_role="complaint_handler",
+            permissions=("cms.complaint.view",),
+        )
+    )
+    owner = SimpleNamespace(user_id=101, active_role="student")
+    handler = SimpleNamespace(user_id=303, active_role="complaint_handler")
+    assigned_elsewhere = submit(
+        actor=owner, category="Facilities", description="Assigned to a different handler"
+    )
+    services.setup_handling(
+        complaint_id=assigned_elsewhere.pk,
+        actor=handler,
+        category="Facilities",
+        priority="medium",
+    )
+    unassigned = submit(actor=owner, category="Facilities", description="Awaiting assignment")
+
+    client = Client(HTTP_AUTHORIZATION="Token handler-token")
+    assert client.get(f"/api/v1/cms/complaints/{unassigned.pk}").status_code == 200
+    assert client.get(f"/api/v1/cms/complaints/{assigned_elsewhere.pk}").status_code == 404
+
+
+@pytest.mark.django_db
 def test_handler_lists_escalations_feedback_announcements_and_csv_reports(stub_iam):
     handler_id = 202
     CmsRoleAssignment.objects.create(

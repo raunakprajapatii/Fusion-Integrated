@@ -115,10 +115,10 @@ def _can_read(request, complaint):
     if complaint.complainant_user_id == actor.user_id:
         return True
     role = (
-        "handler"
-        if selectors.has_active_role(actor.user_id, "handler")
-        else "supervisor"
+        "supervisor"
         if selectors.has_active_role(actor.user_id, "supervisor")
+        else "handler"
+        if selectors.has_active_role(actor.user_id, "handler")
         else None
     )
     return bool(
@@ -126,7 +126,7 @@ def _can_read(request, complaint):
         and (
             role == "supervisor"
             or complaint.assigned_handler_user_id == actor.user_id
-            or complaint.status in {"submitted", "in_progress", "resolved", "rejected", "closed"}
+            or complaint.assigned_handler_user_id is None
         )
     )
 
